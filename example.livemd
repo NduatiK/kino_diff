@@ -1,0 +1,121 @@
+<!-- livebook:{"app_settings":{"slug":"diff"}} -->
+
+# Livebook Examples
+
+```elixir
+Mix.install([
+  {:kino_diff, "~> 0.1.0"}
+])
+```
+
+## Example
+
+```elixir
+KinoDiff.new(
+  """
+  a
+  b
+  Example 2
+  a
+  x
+  y
+
+  Render string diffs from Livebook
+  """,
+  """
+  a
+  b
+  dasdads
+  Example 1
+  x
+  y
+
+  """,
+  layout: :split,
+  wrap: true
+)
+```
+
+```elixir
+KinoDiff.new(
+  """
+  a
+  b
+  dasdads
+  Example 1
+  x
+  y
+
+  """,
+  """
+  a
+  b
+  Example 2
+  a
+  x
+  y
+
+  Render string diffs from Livebook. Render string diffs from Livebook
+  """,
+  layout: :split
+)
+```
+
+```elixir
+KinoDiff.new(
+  """
+  Elixir is:
+  - dynamic
+  - functional
+  - scalable
+  - maintainable
+  """,
+  """
+  Elixir is:
+  - dynamically typed
+  - functional
+  - fun
+  - maintainable
+  """,
+  layout: :split
+)
+```
+
+```elixir
+KinoDiff.new(
+  """
+  Elixir is:
+  - dynamically typed
+  - functional
+  - scalable
+  - fun
+  - maintainable
+  """,
+  """
+  Elixir is:
+  - dynamic
+  - functional
+  - scalable
+  - maintainable
+  """,
+  layout: :split
+)
+```
+
+```elixir
+KinoDiff.new(
+  "Elixir is a dynamic, functional language for building scalable and maintainable applications.",
+  "Elixir is a functional language for building scalable and maintainable applications on a number of devices.",
+  layout: :inline,
+  wrap: true
+)
+```
+
+```elixir
+KinoDiff.new(
+  "Elixir is a dynamic, functional language for building scalable and maintainable applications.",
+  "Elixir is a functional language for building scalable and maintainable applications on a number of devices.",
+  layout: :inline,
+  wrap: false
+)
+```

@@ -2,9 +2,6 @@ defmodule KinoDiff do
   @moduledoc ~S'''
   A kino for rendering the diff between two strings.
 
-  ## Options
-
-    * `:layout` - whether to show the diffs `:inline` or `:split`
 
   ## Examples
 
@@ -19,7 +16,8 @@ defmodule KinoDiff do
 
         c
         """,
-        layout: :inline
+        layout: :inline,
+        wrap: true
       )
 
 
@@ -40,10 +38,22 @@ defmodule KinoDiff do
 
   @doc """
   Creates a new kino displaying the diff of the two strings.
-  """
-  def new(string1, string2, opts \\ [layout: :inline])
 
-  def new(string1, string2, layout: :inline) do
+  ## Options
+
+    * `:layout` - whether to show the diffs `:inline` or `:split`
+
+    * `:wrap` - whether long lines should wrap
+
+  """
+  def new(string1, string2, opts \\ []) do
+    layout = Keyword.get(opts, :layout, :inline)
+    wrap = Keyword.get(opts, :wrap, false)
+
+    render(string1, string2, layout, wrap)
+  end
+
+  defp render(string1, string2, :inline, wrap) do
     diffs =
       :diffy.diff(string1, string2)
       |> Enum.map(&to_html(&1, :inline))
@@ -54,8 +64,8 @@ defmodule KinoDiff do
               width: 100%;
               font-size: 14px;
               font-family: "JetBrains Mono", "Droid Sans Mono", monospace, Consolas, "Courier New", monospace;
-              white-space: pre;
-              overflow-x: auto;
+              #{if wrap, do: "white-space: pre-wrap", else: "white-space: pre; overflow-x: auto;"};
+
           '>|,
       diffs,
       "</div>"
@@ -72,7 +82,7 @@ defmodule KinoDiff do
     end)
   end
 
-  def new(string1, string2, layout: :split) do
+  defp render(string1, string2, :split, wrap) do
     diffs =
       :diffy.diff_linemode(string1, string2)
       |> Enum.flat_map(&split_lines/1)
@@ -81,10 +91,11 @@ defmodule KinoDiff do
           {:equal, "",
            %{
              ends_with_new_line: true,
-             is_line: true
+             unclosed_old: false,
+             unclosed_new: false
            }}
         ],
-        fn {type, text}, [{_, _, prev} | _] = list ->
+        fn {type, text}, [{prev_type, _, prev} | _] = list ->
           ends_with_new_line = String.ends_with?(text, "\n")
 
           [
@@ -92,7 +103,44 @@ defmodule KinoDiff do
               type,
               text,
               %{
-                is_line: ends_with_new_line and prev.ends_with_new_line,
+                unclosed_old:
+                  case {prev_type, prev.ends_with_new_line} do
+                    {:insert, true} ->
+                      true
+
+                    _ ->
+                      case {prev.unclosed_old, type, text} do
+                        {true, :equal, "\n"} ->
+                          true
+
+                        _ ->
+                          false
+                      end
+                  end,
+                unclosed_new:
+                  case {prev_type, prev.ends_with_new_line} do
+                    {:delete, true} ->
+                      true
+
+                    _ ->
+                      case {prev.unclosed_new, type, text} do
+                        {true, :insert, _} ->
+                          true
+
+                        {true, :equal, "\n"} ->
+                          true
+
+                        _ ->
+                          case {type, ends_with_new_line, prev.ends_with_new_line} do
+                            {:delete, true, true} ->
+                              true
+
+                            _ ->
+                              false
+                          end
+                      end
+                  end,
+                prev_ends_with_new_line: prev.ends_with_new_line,
                 ends_with_new_line: ends_with_new_line
               }
             }
@@ -103,28 +151,32 @@ defmodule KinoDiff do
       |> Enum.reverse()
       |> Enum.drop(1)
 
+    # |> IO.inspect()
+
     [
       ~s|<div style='
               line-height: 1.5;
               width: 100%;
               display: grid;
               grid-auto-flow: column;
-              grid-auto-columns: 1ch 1fr 1ch 1fr;
+              grid-auto-columns: 1ch 1fr 1px 1ch 1fr;
               grid-gap: 1ch;
               font-size: 14px;
               font-family: "JetBrains Mono", "Droid Sans Mono", monospace, Consolas, "Courier New", monospace;
               white-space: pre;
               overflow-x: auto;
+
           '>|,
-      "<div style='width:1ch;'>",
+      "<div style='width:1ch;overflow:clip;'>",
       get_html(diffs, :old_marker),
       "</div>",
       "<div style='white-space: pre;overflow-x: auto;'>",
       get_html(diffs, :old),
       "</div>",
-      "<div>",
+      "<div style='background-color: rgb(225 232 240);width:1px;'></div>",
+      "<div style='width:1ch;overflow:clip;'>",
       get_html(diffs, :new_marker),
-      "</div style='width:1ch;'>",
+      "</div>",
       "<div style='white-space: pre;overflow-x: auto;'>",
       get_html(diffs, :new),
       "</div>",
@@ -188,8 +240,20 @@ defmodule KinoDiff do
     ["<div style='background-color: #eaeef280; width:100%;'>", "&nbsp;", "</div>"]
   end
 
-  defp to_html({:delete, _, %{ends_with_new_line: true}}, :new) do
+  defp to_html(
+         {:delete, _,
+          %{unclosed_new: true, prev_ends_with_new_line: true, ends_with_new_line: true}},
+         :new
+       ) do
     ["<div style='background-color: #eaeef280; width:100%;'>", "&nbsp;", "</div>"]
+  end
+
+  defp to_html({:delete, _, %{ends_with_new_line: true}}, :new) do
+    []
+  end
+
+  defp to_html({:delete, text, %{blank_for: :new}}, :new) do
+    []
   end
 
   defp to_html({:insert, "\n", _}, :old) do
@@ -233,8 +297,12 @@ defmodule KinoDiff do
     [""]
   end
 
-  defp to_html({:equal, "\n", _}, :old) do
+  defp to_html({:equal, "\n", %{unclosed_old: true}}, :old) do
     []
+  end
+
+  defp to_html({:equal, "\n", %{unclosed_new: true}}, :new) do
+    ["<div style='background-color: #eaeef280; width:100%;'>", "&nbsp;", "</div>"]
   end
 
   defp to_html({:equal, "\n", _}, _) do

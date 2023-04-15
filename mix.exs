@@ -11,7 +11,8 @@ defmodule KinoDiff.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
-      package: package()
+      package: package(),
+      docs: docs()
     ]
   end
 
@@ -37,9 +38,14 @@ defmodule KinoDiff.MixProject do
     """
   end
 
+  defp docs() do
+    # The main page in the docs
+    [main: "KinoDiff", extras: ["example.livemd"]]
+  end
+
   defp package do
     [
-      files: ["lib", "mix.exs", "README*", "LICENSE*"],
+      # files: ["lib", "mix.exs", "README*", "LICENSE*", "screenshots/*"],
       maintainers: ["Nduati Kuria"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/NduatiK/kino_diff"}
