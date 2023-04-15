@@ -40,7 +40,12 @@ defmodule KinoDiff.MixProject do
 
   defp docs() do
     # The main page in the docs
-    [main: "KinoDiff", extras: ["example.livemd"]]
+    [
+      main: "KinoDiff",
+      extras: ["example.livemd"],
+      source_url: "https://github.com/NduatiK/kino_diff",
+      source_ref: "#{@version}"
+    ]
   end
 
   defp package do
